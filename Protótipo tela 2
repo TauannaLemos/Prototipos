@@ -1,376 +1,157 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>BID Management — Triagem Automática (IA)</title>
-  <style>
-    :root{
-      --bg:#f5f7f8;--card:#ffffff;--muted:#6b7280;--primary:#0f4c81;--accent:#2a7f62;--danger:#c0392b;
-      --glass: rgba(255,255,255,0.6);
-    }
-    html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#eef3f7 0%, #f6f8fa 100%);color:#0b1220}
-    .container{max-width:1100px;margin:28px auto;padding:24px}
-    h1{font-size:28px;margin:0 0 8px}
-    p.lead{color:var(--muted);margin:0 0 20px}
+  <head>
+    <meta charset="UTF-8" />
+    <title>Cadastro & Triagem - BID Management</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/framer-motion/dist/framer-motion.umd.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100">
+    <div id="root"></div>
 
-    /* Timeline header (no progress bar) */
-    .timeline{display:flex;gap:18px;align-items:center;margin-bottom:20px}
-    .step{display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 12px;border-radius:10px}
-    .step .dot{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700}
-    .step.done .dot{background:var(--accent);color:#fff}
-    .step.current .dot{background:var(--primary);color:#fff}
-    .step.pending .dot{background:#e6edf3;color:var(--primary)}
-    .step small{font-size:12px;color:var(--muted)}
+    <script type="text/javascript">
+      const { useState } = React;
+      const { motion, AnimatePresence } = window['framer-motion'];
 
-    /* layout */
-    .grid{display:grid;grid-template-columns:1fr 360px;gap:20px}
-    .card{background:var(--card);border-radius:12px;box-shadow:0 6px 18px rgba(15,20,32,0.06);padding:18px}
-    .card h3{margin:0 0 8px;font-size:18px}
-    label{display:block;font-weight:600;margin-bottom:6px}
-    .muted{color:var(--muted);font-size:13px}
-    input[type=text],textarea,select{width:100%;padding:10px;border-radius:8px;border:1px solid #e6edf3;font-size:15px}
-    textarea{min-height:120px;resize:vertical}
-    .row{display:flex;gap:12px}
-    .row > *{flex:1}
-    .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
-    button{padding:10px 14px;border-radius:10px;border:0;font-weight:700;cursor:pointer}
-    .btn-primary{background:var(--primary);color:#fff}
-    .btn-ghost{background:transparent;border:1px solid #dbe7f2;color:var(--primary)}
-    .btn-danger{background:var(--danger);color:#fff}
+      const PRACTICES = ["DATA", "DIC", "DS", "SGE", "GU"];
 
-    /* recommendation cards */
-    .recommendations{display:flex;flex-direction:column;gap:12px}
-    .rec-card{border-radius:10px;padding:12px;border:1px solid #e7eef6;display:flex;gap:12px;align-items:flex-start}
-    .rec-card.readonly{background:linear-gradient(180deg,#fff, #fbfeff)}
-    .rec-card .meta{flex:1}
-    .rec-card .selectBox{display:flex;align-items:center;gap:8px}
-    .rec-card .id{font-size:12px;color:var(--muted);font-weight:600}
-    .rec-card h4{margin:0 0 6px}
-    .rec-card p{margin:0;color:var(--muted)}
+      const mockRecommendations = [
+        { id: 1, practice: "Prática 1", justification: "Texto analisado do escopo: Lorem ipsum..." },
+        { id: 2, practice: "Prática 2", justification: "Anexo indica relevância para prática X..." }
+      ];
 
-    /* manual practice card */
-    .manual-card{border:1px dashed #dbe7f2;padding:12px;border-radius:10px}
-    select[multiple]{min-height:80px}
+      function App() {
+        const [step, setStep] = useState(6); // já inicia na triagem p/ demonstração
+        const [selectedRecs, setSelectedRecs] = useState([]);
+        const [manualPractices, setManualPractices] = useState([]);
+        const [showModal, setShowModal] = useState(false);
 
-    /* right column */
-    .side-section{display:flex;flex-direction:column;gap:12px}
-    .flag{padding:8px;border-radius:8px;background:#f1f6fb;border:1px solid #e1eef7;color:var(--primary);font-weight:700;text-align:center}
+        const handleSubmit = async () => {
+          const payload = {
+            recommendations: selectedRecs,
+            manual: manualPractices,
+            date: new Date().toISOString()
+          };
+          console.log("Stub fetch enviado:", payload);
 
-    /* overlay for success */
-    .overlay{position:fixed;inset:0;background:rgba(10,12,16,0.5);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .2s}
-    .overlay.open{opacity:1;pointer-events:auto}
-    .modal{background:var(--card);padding:28px;border-radius:14px;max-width:720px;box-shadow:0 12px 40px rgba(2,6,23,0.2);text-align:center}
-    .modal h2{margin:0 0 6px;font-size:24px}
-    .badge{display:inline-block;background:linear-gradient(180deg,var(--accent),#2bb07b);color:#fff;padding:10px 14px;border-radius:999px;font-weight:800;margin-top:12px}
+          // stub de envio
+          await fetch("/api/enviar-oferta", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
 
-    /* history */
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-bottom:1px solid #eef3f6;text-align:left;font-size:14px}
-    th{background:#fbfdff}
+          setShowModal(true);
+        };
 
-    /* responsive */
-    @media(max-width:980px){.grid{grid-template-columns:1fr}.container{padding:16px}.side-section{order:2}}
+        const toggleRec = (id) => {
+          setSelectedRecs((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+          );
+        };
 
-    /* larger typography for modern look */
-    body{font-size:17px}
-    input,select,textarea{font-size:16px}
-    label{font-size:15px}
+        const toggleManualPractice = (practice) => {
+          setManualPractices((prev) =>
+            prev.includes(practice)
+              ? prev.filter((p) => p !== practice)
+              : [...prev, practice]
+          );
+        };
 
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>BID Management — Triagem Automática (IA)</h1>
-    <p class="lead">Visão de perfil para triagem: recomendações de prática geradas por IA e controles manuais para o time BID Management.</p>
+        return (
+          React.createElement("div", { className: "min-h-screen flex items-center justify-center p-6" },
+            React.createElement("div", { className: "w-full max-w-5xl bg-white rounded-2xl shadow-lg p-6" },
 
-    <div class="timeline">
-      <div class="step done">
-        <div class="dot">1</div>
-        <small>Escopo</small>
-      </div>
-      <div class="step current">
-        <div class="dot">2</div>
-        <small>Triagem IA</small>
-      </div>
-      <div class="step pending">
-        <div class="dot">3</div>
-        <small>Envio</small>
-      </div>
-    </div>
+              step === 6 &&
+              React.createElement(motion.div, {
+                key: "triagem",
+                initial: { opacity: 0, y: 20 },
+                animate: { opacity: 1, y: 0 },
+                exit: { opacity: 0, y: -20 },
+                className: "space-y-6"
+              },
+                React.createElement("h2", { className: "text-xl font-semibold" }, "Triagem Automática (IA)"),
 
-    <div class="grid">
-      <!-- main column -->
-      <div>
-        <div class="card">
-          <h3>Dados do Mercado (Leitura)</h3>
-          <p class="muted">Os campos preenchidos pelo perfil Mercado são exibidos em modo somente leitura para o BID Management.</p>
-          <div style="margin-top:12px">
-            <label>Escopo e Objetivo</label>
-            <textarea id="escopo" readonly>Implementação de plataforma de dados para integração de analytics com pipelines de ingestão, transformação e visualização. O projeto envolve BTP, AWS e integração com sistemas legados. (Conteúdo simulado para teste, >250 caracteres) Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</textarea>
-          </div>
+                React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
+                  mockRecommendations.map((rec) =>
+                    React.createElement(motion.div, {
+                      key: rec.id,
+                      whileHover: { scale: 1.02 },
+                      className: "bg-gray-100 rounded-xl p-4 shadow"
+                    },
+                      React.createElement("div", { className: "flex justify-between items-center mb-2" },
+                        React.createElement("span", { className: "font-bold" }, `ID: ${rec.id} 🤖`),
+                        React.createElement("input", {
+                          type: "checkbox",
+                          checked: selectedRecs.includes(rec.id),
+                          onChange: () => toggleRec(rec.id)
+                        })
+                      ),
+                      React.createElement("p", { className: "text-sm" },
+                        React.createElement("strong", null, "Prática Sugerida:"), " ", rec.practice
+                      ),
+                      React.createElement("p", { className: "text-xs text-gray-600 mt-2" },
+                        React.createElement("strong", null, "Justificativa:"), " ", rec.justification
+                      )
+                    )
+                  )
+                ),
 
-          <div style="margin-top:12px">
-            <label>Anexos</label>
-            <div class="muted">oferta_proposta.pdf (texto analisável)</div>
-          </div>
-        </div>
+                React.createElement("div", { className: "bg-white border rounded-xl p-4 shadow space-y-3" },
+                  React.createElement("label", { className: "block font-semibold" }, "Selecionar prática(s) manualmente:"),
+                  React.createElement("div", { className: "grid grid-cols-2 gap-2" },
+                    PRACTICES.map((p) =>
+                      React.createElement("label", { key: p, className: "flex items-center space-x-2" },
+                        React.createElement("input", {
+                          type: "checkbox",
+                          checked: manualPractices.includes(p),
+                          onChange: () => toggleManualPractice(p)
+                        }),
+                        React.createElement("span", null, p)
+                      )
+                    )
+                  )
+                ),
 
-        <div class="card" style="margin-top:16px">
-          <h3>Recomendações da IA</h3>
-          <p class="muted">A IA analisou o Escopo (e anexo) e sugere práticas com justificativa.</p>
+                React.createElement("button", {
+                  className: `w-full mt-4 px-4 py-2 rounded-xl text-white font-semibold ${selectedRecs.length === 0 && manualPractices.length === 0
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-indigo-600 hover:bg-indigo-700"}`,
+                  disabled: selectedRecs.length === 0 && manualPractices.length === 0,
+                  onClick: handleSubmit
+                }, "Enviar Oferta")
+              )
+            ),
 
-          <div class="recommendations" id="recList">
-            <!-- recommendation cards injected by JS -->
-          </div>
-
-          <div class="manual-card" style="margin-top:12px">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <label style="margin:0">Selecionar prática(s) manualmente</label>
-              <div><input type="checkbox" id="manualCardFlag" /> Selecionar</div>
-            </div>
-            <small class="muted">Escolha uma ou mais práticas se desejar complementar/corrigir as recomendações da IA.</small>
-            <div style="margin-top:8px">
-              <select id="manualPractices" multiple>
-                <!-- options injected by JS -->
-              </select>
-            </div>
-          </div>
-
-          <div class="actions" style="margin-top:14px">
-            <button class="btn-ghost" id="btn-request-adjust">Solicitar Ajuste</button>
-            <button class="btn-primary" id="btn-send-offer" disabled>Enviar Oferta</button>
-          </div>
-        </div>
-
-        <div class="card" style="margin-top:16px" id="reviewCard">
-          <h3>Campos de Triagem & Ajustes</h3>
-
-          <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
-            <label style="margin:0">Necessário ajuste?</label>
-            <div style="display:flex;gap:8px;align-items:center">
-              <label><input type="radio" name="needAdjust" value="no" checked /> NÃO</label>
-              <label><input type="radio" name="needAdjust" value="yes" /> SIM</label>
-            </div>
-          </div>
-
-          <div id="adjustTextWrap" style="display:none;margin-top:8px">
-            <label>Solicitação de ajuste</label>
-            <textarea id="adjustText" placeholder="Descreva o ajuste necessário..."></textarea>
-          </div>
-
-          <div style="margin-top:12px;display:flex;gap:12px">
-            <div style="flex:1">
-              <label>Oferta Aceita</label>
-              <input type="text" id="offerAccepted" readonly placeholder="(somente leitura)" />
-            </div>
-            <div style="flex:1">
-              <label>Oferta Recusada</label>
-              <input type="text" id="offerRejected" readonly placeholder="(somente leitura)" />
-            </div>
-          </div>
-
-        </div>
-
-        <div class="card" style="margin-top:16px">
-          <h3>Histórico de Ações</h3>
-          <table id="historyTable">
-            <thead><tr><th>Data / Hora</th><th>Ação</th><th>Detalhes</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-
-      </div>
-
-      <!-- right column -->
-      <aside class="side-section">
-        <div class="card">
-          <h3>Seleção de Pricer</h3>
-          <p class="muted">Escolha o pricer responsável. Se nenhum estiver disponível, marque a flag "A cargo da prática".</p>
-          <div style="margin-top:8px">
-            <select id="pricerSelect">
-              <!-- options injected -->
-            </select>
-            <div style="margin-top:8px">
-              <label><input type="checkbox" id="flagCargo" /> A cargo da prática</label>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Responsáveis (somente leitura)</h3>
-          <div style="margin-top:6px">
-            <label>Responsável pela prática</label>
-            <input type="text" id="responsavelPratica" readonly placeholder="(preenchido pela prática)" />
-          </div>
-          <div style="margin-top:12px">
-            <label>Apoio ao responsável</label>
-            <input type="text" id="apoioResponsavel" readonly placeholder="(preenchido pela prática)" />
-          </div>
-        </div>
-
-        <div class="card card-compact">
-          <h3>Resumo Rápido</h3>
-          <p class="muted" style="margin:0 0 8px">Selecione recomendações ou práticas manuais e clique em <strong>Enviar Oferta</strong>.</p>
-          <div class="flag" id="selectedCount">0 prática(s) selecionada(s)</div>
-        </div>
-      </aside>
-    </div>
-  </div>
-
-  <!-- overlay modal success -->
-  <div class="overlay" id="overlay">
-    <div class="modal">
-      <h2>Parabéns!</h2>
-      <p class="muted">A oferta foi enviada com sucesso para as práticas selecionadas.</p>
-      <div class="badge">Envio realizado ✔</div>
-      <div style="margin-top:16px"><button class="btn-primary" id="closeOverlay">Fechar</button></div>
-    </div>
-  </div>
-
-  <script>
-    // --- Simulated data ---
-    const practices = [
-      'Analytics & Data','Cloud & Infra','Security','SAP','SGE','GU','DATA','DIC','DS'
-    ];
-
-    const aiRecommendations = [
-      {id: 'REC-20250924-01', practice: 'Analytics & Data', justification: 'Escopo menciona pipelines de ingestão, analytics, e integração com BTP e AWS. Palavras-chave: analytics, ingestão, BTP.'},
-      {id: 'REC-20250924-02', practice: 'Cloud & Infra', justification: 'Referências a integração com AWS e infraestrutura escalável; recomendado para avaliar arquitetura cloud.'}
-    ];
-
-    // populate recommendations and manual practices
-    const recList = document.getElementById('recList');
-    const manualSelect = document.getElementById('manualPractices');
-    const manualFlag = document.getElementById('manualCardFlag');
-    const btnSend = document.getElementById('btn-send-offer');
-    const selectedCount = document.getElementById('selectedCount');
-    const historyTbody = document.querySelector('#historyTable tbody');
-    const pricerSelect = document.getElementById('pricerSelect');
-    const flagCargo = document.getElementById('flagCargo');
-    const overlay = document.getElementById('overlay');
-    const btnCloseOverlay = document.getElementById('closeOverlay');
-
-    // simulate available pricers (can be empty array to test 'A cargo da prática')
-    const pricers = ['Pricer 1','Pricer 2','Pricer 3'];
-
-    function init(){
-      // inject AI recs
-      aiRecommendations.forEach((r,idx)=>{
-        const card = document.createElement('div');
-        card.className = 'rec-card readonly';
-        card.innerHTML = `<div class="meta"><div class="id">${r.id}</div><h4>${r.practice}</h4><p>${r.justification}</p></div><div class="selectBox"><input type=checkbox data-rec-index="${idx}" class="recSelect" /></div>`;
-        recList.appendChild(card);
-      });
-
-      // populate practices list
-      practices.forEach(p=>{
-        const opt = document.createElement('option'); opt.value = p; opt.textContent = p; manualSelect.appendChild(opt);
-      });
-
-      // populate pricer select
-      if(pricers.length===0){
-        pricerSelect.innerHTML = '<option value="">(nenhum pricer disponível)</option>';
-      } else {
-        pricerSelect.innerHTML = '<option value="">-- Selecionar pricer --</option>' + pricers.map(p=>`<option value="${p}">${p}</option>`).join('');
+            showModal &&
+            React.createElement(motion.div, {
+              initial: { opacity: 0 },
+              animate: { opacity: 1 },
+              exit: { opacity: 0 },
+              className: "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur"
+            },
+              React.createElement(motion.div, {
+                initial: { scale: 0.8 },
+                animate: { scale: 1 },
+                exit: { scale: 0.8 },
+                className: "bg-white rounded-2xl shadow-xl p-8 text-center max-w-md"
+              },
+                React.createElement("h3", { className: "text-lg font-semibold mb-4" }, "🎉 Parabéns!"),
+                React.createElement("p", { className: "text-gray-600 mb-6" }, "A oferta foi enviada com sucesso."),
+                React.createElement("button", {
+                  className: "px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700",
+                  onClick: () => setShowModal(false)
+                }, "Fechar")
+              )
+            )
+          )
+        );
       }
 
-      attachEvents();
-      updateSelectedCount();
-    }
-
-    function attachEvents(){
-      // recommendation selection
-      document.querySelectorAll('.recSelect').forEach(cb=>cb.addEventListener('change', updateSelectedCount));
-
-      // manual card selection
-      manualFlag.addEventListener('change', ()=>{
-        manualSelect.disabled = !manualFlag.checked;
-        updateSelectedCount();
-      });
-      manualSelect.addEventListener('change', updateSelectedCount);
-
-      // need adjust toggle
-      document.getElementsByName('needAdjust').forEach(r=>r.addEventListener('change', e=>{
-        document.getElementById('adjustTextWrap').style.display = e.target.value==='yes' ? 'block' : 'none';
-        document.getElementById('btn-request-adjust').disabled = e.target.value!=='yes';
-      }));
-
-      // request adjust button
-      document.getElementById('btn-request-adjust').addEventListener('click', ()=>{
-        const txt = document.getElementById('adjustText').value.trim();
-        if(!txt){alert('Preencha a solicitação de ajuste antes de enviar.');return;}
-        pushHistory('Solicitação de ajuste enviada', txt);
-        notifyMarket(txt);
-      });
-
-      // Send offer
-      btnSend.addEventListener('click', ()=>{
-        // validate at least one practice selected
-        const selected = getSelectedPractices();
-        if(selected.length===0){alert('Selecione pelo menos uma prática antes de enviar.');return;}
-
-        // record action
-        const user = 'BID Management User';
-        const when = new Date().toLocaleString();
-        pushHistory('Oferta enviada', `Práticas: ${selected.join(', ')} | Pricer: ${pricerSelect.value || 'A cargo da prática'} | Usuário: ${user}`);
-
-        // Simulate setting oferta aceita/recusada read-only fields as pending
-        document.getElementById('offerAccepted').value = 'Pendente';
-        document.getElementById('offerRejected').value = '';
-
-        // show overlay success
-        overlay.classList.add('open');
-      });
-
-      btnCloseOverlay.addEventListener('click', ()=>{
-        overlay.classList.remove('open');
-      });
-
-      // flag cargo change
-      flagCargo.addEventListener('change', ()=>{
-        if(flagCargo.checked) pricerSelect.value = '';
-      });
-
-      // manual disabling of manual select by default
-      manualSelect.disabled = !manualFlag.checked;
-
-    }
-
-    function getSelectedPractices(){
-      const selected = [];
-      document.querySelectorAll('.recSelect').forEach((cb,idx)=>{ if(cb.checked) selected.push(aiRecommendations[idx].practice); });
-      if(manualFlag.checked){
-        Array.from(manualSelect.selectedOptions).forEach(opt=>{ if(!selected.includes(opt.value)) selected.push(opt.value); });
-      }
-      return selected;
-    }
-
-    function updateSelectedCount(){
-      const count = getSelectedPractices().length;
-      selectedCount.textContent = `${count} prática(s) selecionada(s)`;
-      btnSend.disabled = count===0;
-    }
-
-    function pushHistory(action, details){
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${new Date().toLocaleString()}</td><td>${action}</td><td>${escapeHtml(details)}</td>`;
-      historyTbody.prepend(tr);
-    }
-
-    function escapeHtml(str){
-      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
-
-    function notifyMarket(message){
-      // simulate notification
-      pushHistory('Notificação enviada ao Mercado', message);
-      alert('Notificação enviada ao responsável do Mercado.');
-    }
-
-    // init
-    init();
-
-  </script>
-</body>
+      ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+    </script>
+  </body>
 </html>
+
