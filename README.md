@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Cadastro & Triagem - BID Management</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/framer-motion/dist/framer-motion.umd.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100">
+    <div id="root"></div>
+
+    <script type="text/javascript">
+      const { useState } = React;
+      const { motion, AnimatePresence } = window['framer-motion'];
+
+      const PRACTICES = ["DATA", "DIC", "DS", "SGE", "GU"];
+
+      const mockRecommendations = [
+        { id: 1, practice: "Prática 1", justification: "Texto analisado do escopo: Lorem ipsum..." },
+        { id: 2, practice: "Prática 2", justification: "Anexo indica relevância para prática X..." }
+      ];
+
+      function App() {
+        const [step, setStep] = useState(6); // já inicia na triagem p/ demonstração
+        const [selectedRecs, setSelectedRecs] = useState([]);
+        const [manualPractices, setManualPractices] = useState([]);
+        const [showModal, setShowModal] = useState(false);
+
+        const handleSubmit = async () => {
+          const payload = {
+            recommendations: selectedRecs,
+            manual: manualPractices,
+            date: new Date().toISOString()
+          };
+          console.log("Stub fetch enviado:", payload);
+
+          // stub de envio
+          await fetch("/api/enviar-oferta", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+
+          setShowModal(true);
+        };
+
+        const toggleRec = (id) => {
+          setSelectedRecs((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+          );
+        };
+
+        const toggleManualPractice = (practice) => {
+          setManualPractices((prev) =>
+            prev.includes(practice)
+              ? prev.filter((p) => p !== practice)
+              : [...prev, practice]
+          );
+        };
+
+        return (
+          React.createElement("div", { className: "min-h-screen flex items-center justify-center p-6" },
+            React.createElement("div", { className: "w-full max-w-5xl bg-white rounded-2xl shadow-lg p-6" },
+
+              step === 6 &&
+              React.createElement(motion.div, {
+                key: "triagem",
+                initial: { opacity: 0, y: 20 },
+                animate: { opacity: 1, y: 0 },
+                exit: { opacity: 0, y: -20 },
+                className: "space-y-6"
+              },
+                React.createElement("h2", { className: "text-xl font-semibold" }, "Triagem Automática (IA)"),
+
+                React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
+                  mockRecommendations.map((rec) =>
+                    React.createElement(motion.div, {
+                      key: rec.id,
+                      whileHover: { scale: 1.02 },
+                      className: "bg-gray-100 rounded-xl p-4 shadow"
+                    },
+                      React.createElement("div", { className: "flex justify-between items-center mb-2" },
+                        React.createElement("span", { className: "font-bold" }, `ID: ${rec.id} 🤖`),
+                        React.createElement("input", {
+                          type: "checkbox",
+                          checked: selectedRecs.includes(rec.id),
+                          onChange: () => toggleRec(rec.id)
+                        })
+                      ),
+                      React.createElement("p", { className: "text-sm" },
+                        React.createElement("strong", null, "Prática Sugerida:"), " ", rec.practice
+                      ),
+                      React.createElement("p", { className: "text-xs text-gray-600 mt-2" },
+                        React.createElement("strong", null, "Justificativa:"), " ", rec.justification
+                      )
+                    )
+                  )
+                ),
+
+                React.createElement("div", { className: "bg-white border rounded-xl p-4 shadow space-y-3" },
+                  React.createElement("label", { className: "block font-semibold" }, "Selecionar prática(s) manualmente:"),
+                  React.createElement("div", { className: "grid grid-cols-2 gap-2" },
+                    PRACTICES.map((p) =>
+                      React.createElement("label", { key: p, className: "flex items-center space-x-2" },
+                        React.createElement("input", {
+                          type: "checkbox",
+                          checked: manualPractices.includes(p),
+                          onChange: () => toggleManualPractice(p)
+                        }),
+                        React.createElement("span", null, p)
+                      )
+                    )
+                  )
+                ),
+
+                React.createElement("button", {
+                  className: `w-full mt-4 px-4 py-2 rounded-xl text-white font-semibold ${selectedRecs.length === 0 && manualPractices.length === 0
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-indigo-600 hover:bg-indigo-700"}`,
+                  disabled: selectedRecs.length === 0 && manualPractices.length === 0,
+                  onClick: handleSubmit
+                }, "Enviar Oferta")
+              )
+            ),
+
+            showModal &&
+            React.createElement(motion.div, {
+              initial: { opacity: 0 },
+              animate: { opacity: 1 },
+              exit: { opacity: 0 },
+              className: "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur"
+            },
+              React.createElement(motion.div, {
+                initial: { scale: 0.8 },
+                animate: { scale: 1 },
+                exit: { scale: 0.8 },
+                className: "bg-white rounded-2xl shadow-xl p-8 text-center max-w-md"
+              },
+                React.createElement("h3", { className: "text-lg font-semibold mb-4" }, "🎉 Parabéns!"),
+                React.createElement("p", { className: "text-gray-600 mb-6" }, "A oferta foi enviada com sucesso."),
+                React.createElement("button", {
+                  className: "px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700",
+                  onClick: () => setShowModal(false)
+                }, "Fechar")
+              )
+            )
+          )
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+    </script>
+  </body>
+</html>
